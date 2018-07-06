@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modification>
+    <id>Default currency per language</id>
+    <description>Set default currency for each language.</description>
+    <version>1.4.x and above</version>
+    <vqmver required="true">2.6.0</vqmver>
+    <author>Tony Tanchevski</author>
+    
+    <!-- Admin -->
+    <file name="admin/language/en-gb/localisation/language.php">
+        <operation>
+            <search position="before"><![CDATA[$_['heading_title']     = 'Languages';]]></search>
+            <add>
+                <![CDATA[
+                $_['entry_default_currency']  = 'Default currency';
+                $_['text_choose']  = '--- None ---';
+                $_['text_disable_all_currencies']  = 'If you set default currency for this language, all other currencies will be disabled.';
+                $_['error_not_installed'] = 'Please, execute the SQL code (install.sql) provided with the module.';
+                ]]>
+            </add>
+        </operation>   
+    </file>
+
+    <file name="admin/controller/localisation/language.php">
+        <operation>
+            <search position="before"><![CDATA[$data['heading_title'] = $this->language->get('heading_title');]]></search>
+            <add><![CDATA[$data['entry_default_currency'] = $this->language->get('entry_default_currency');]]></add>
+        </operation>
+        <operation>
+            <search position="before"><![CDATA[$data['heading_title'] = $this->language->get('heading_title');]]></search>
+            <add>
+                <![CDATA[
+                $data['entry_default_currency'] = $this->language->get('entry_default_currency');
+                $data['text_choose'] = $this->language->get('text_choose');
+                $data['error_not_installed'] = $this->language->get('error_not_installed');
+                $data['text_disable_all_currencies'] = $this->language->get('text_disable_all_currencies');
+                ]]>
+            </add>
+        </operation>
+        <operation>
+            <search position="before"><![CDATA[$this->response->setOutput($this->load->view('localisation/language_form', $data));]]></search>
+            <add>
+                <![CDATA[
+                $this->load->model('localisation/currency');
+                $data['currencies'] = $this->model_localisation_currency->getCurrencies();
+                $data['currencyColumnNotExists'] = empty($this->model_localisation_language->currencyColumnNotExists()) ? 1 : 0;
+                ]]>
+            </add>
+        </operation>
+        <operation>
+            <search position="before"><![CDATA[if (isset($this->request->post['code'])) {]]></search>
+            <add>
+                <![CDATA[
+                if (isset($this->request->post['currency_id'])) {
+                    $data['currency_id'] = $this->request->post['currency_id'];
+                } elseif (!empty($language_info) && isset($language_info['currency_id'])) {
+                    $data['currency_id'] = $language_info['currency_id'];
+                } else {
+                    $data['currency_id'] = '';
+                }
+                ]]>
+            </add>
+        </operation>
+    </file>
+
+    <file name="admin/model/localisation/language.php">
+        <operation>
+            <search position="iafter"><![CDATA[code = '" . $this->db->escape($data['code']) . "',]]></search>
+            <add><![CDATA[currency_id = '" . (int)$data['currency_id'] . "',]]></add>
+       </operation>
+       <operation>
+           <search position="before"><![CDATA[public function getLanguageByCode($code) {]]></search>
+           <add>
+               <![CDATA[
+                public function currencyColumnNotExists() {
+                    $query = $this->db->query("SHOW COLUMNS FROM `" . DB_PREFIX . "language` LIKE 'currency_id' ");
+                    return $query->row;
+                }
+               ]]>
+           </add>
+       </operation>
+    </file>
+
+    <file name="admin/view/template/localisation/language_form.tpl">
+        <operation>
+            <search position="before" index="1"><![CDATA[<div class="form-group">]]></search>
+            <add>
+                <![CDATA[
+                <div class="form-group">
+                    <label class="col-sm-2 control-label" for="input-currency">
+                        <span data-toggle="tooltip" data-original-title="<?php echo $text_disable_all_currencies; ?>">
+                            <?php echo $entry_default_currency; ?>
+                        </span>
+                    </label>
+                    
+                    <div class="col-sm-10">
+                        <?php if ($currencyColumnNotExists) { ?>
+                        <div class="alert alert-warning"><i class="fa fa-warning"></i> <?php echo $error_not_installed; ?></div>
+                        <?php } else { ?>
+                        <select name="currency_id" id="input-currency" class="form-control">
+                            <option value=""><?php echo $text_choose ?></option>
+                            <?php foreach ($currencies as $currency) { ?>
+                            <option value="<?php echo $currency['currency_id'] ?>" <?php if ($currency['currency_id'] == $currency_id) echo 'selected="selected"' ?>><?php echo $currency['title'] ?></option>
+                            <?php } ?>
+                        </select>
+                        <?php } ?>
+                    </div>
+                </div>
+                ]]>  
+            </add>
+        </operation>
+    </file>
+
+    <!-- Catalog -->
+    <file name="catalog/model/localisation/language.php">
+        <operation>
+            <search position="after"><![CDATA['code'        => $result['code'],]]></search>
+            <add>
+                <![CDATA['currency_id' => $result['currency_id'],]]>
+            </add>
+        </operation>
+    </file>
+
+    <file name="catalog/model/localisation/currency.php">
+        <operation>
+            <search position="before"><![CDATA[public function getCurrencyByCode($currency) {]]></search>
+            <add>
+                <![CDATA[
+                /**
+                 * Get currency code by currency_id
+                 *
+                 * @param integer $currency_id
+                 * @return string 'USD' or 'EUR' and etc.
+                 */
+                public function getCurrencyCodeById($currency_id) {
+                    $query = $this->db->query("SELECT code FROM " . DB_PREFIX . "currency WHERE currency_id = '" . (int)$currency_id . "'");
+                    return $query->row['code'];
+                }
+                ]]>
+            </add>
+        </operation>
+    </file>
+    
+    <file name="catalog/controller/startup/startup.php">
+        <operation>
+            <search position="before"><![CDATA[$this->registry->set('language', $language);]]></search>
+            <add><![CDATA[$language_currency_id = $languages[$code]['currency_id'] ?: null;]]></add>
+        </operation>
+        <operation>
+            <search position="after"><![CDATA[$currencies = $this->model_localisation_currency->getCurrencies();]]></search>
+            <add>
+                <![CDATA[
+                if ($language_currency_id != null) {
+                    unset($this->session->data['currency_from_switcher']);
+                    $this->session->data['currency'] = $this->model_localisation_currency->getCurrencyCodeById($language_currency_id);
+                    $this->session->data['disable_currency_switcher'] = 1;
+                } else {
+                    $this->session->data['currency'] = $this->config->get('config_currency');
+                    unset($this->session->data['disable_currency_switcher']);
+                }
+                ]]>
+            </add>
+        </operation>
+        <operation>
+            <search position="before"><![CDATA[if (isset($this->request->cookie['currency']) && !array_key_exists($code, $currencies)) {]]></search>
+            <add>
+                <![CDATA[
+                if (isset($this->session->data['currency_from_switcher'])) {
+                    $code = $this->session->data['currency'] = $this->session->data['currency_from_switcher'];
+                }
+                ]]>
+            </add>
+        </operation>
+    </file>
+    
+    <!-- Disable currency switcher -->
+    <file name="catalog/controller/common/currency.php">
+        <operation>
+            <search position="after"><![CDATA[$this->session->data['currency'] = $this->request->post['code'];]]></search>
+            <add><![CDATA[$this->session->data['currency_from_switcher'] = $this->request->post['code'];]]></add>
+        </operation>
+        <operation>
+            <search position="before"><![CDATA[return $this->load->view('common/currency', $data);]]></search>
+            <add>
+                <![CDATA[
+                // this is for currency switcher
+                if (isset($this->session->data['disable_currency_switcher'])) {
+                    $data['currencies'] = [];
+                }
+                ]]>
+            </add>
+        </operation>
+    </file>
+
+</modification>
