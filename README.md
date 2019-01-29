@@ -10,12 +10,12 @@ English -> USD, Bulgarian - BGN, German -> EUR, Italian -> **also EUR** Russian 
 * ![vQmod for OpenCart](https://github.com/vqmod/vqmod/releases)
 
 ## Notes:
-The module is tested on:
+1. The module is tested on:
 
 * OpenCart 2.2.0.0
 * OpenCart 2.3.0.2
 
-But it may work on all 2.x versions
+2. It doesn't work with SEO urls yet.
 
 ## Install:
 1. First, you have to run the SQL query in your database provided with the module (install.sql) by using some software for database management (phpMyAdmin, MySQL Workbench) or through command-line.
